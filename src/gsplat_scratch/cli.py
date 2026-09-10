@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 
 import numpy as np
@@ -14,6 +15,8 @@ from .colmap import load_sparse_model
 from .initialization import initialise_from_sparse_model
 from .renderer import RenderCamera, render_reference
 from .torch_model import TorchGaussianParameters
+from .dataset import load_training_views
+from .trainer import GaussianTrainer, TrainingConfig
 from .viewer import GaussianMapEditor
 
 
@@ -48,6 +51,13 @@ def main() -> None:
     render_demo = subcommands.add_parser("render-demo", help="Render a small differentiable Gaussian scene to a PNG")
     render_demo.add_argument("output", type=Path)
     render_demo.add_argument("--size", type=int, default=128)
+    train = subcommands.add_parser("train-colmap", help="Train the reference renderer on COLMAP images")
+    train.add_argument("sparse_model", type=Path)
+    train.add_argument("image_directory", type=Path)
+    train.add_argument("output", type=Path)
+    train.add_argument("--iterations", type=int, default=500)
+    train.add_argument("--max-resolution", type=int, default=128)
+    train.add_argument("--max-gaussians", type=int, default=256)
     args = parser.parse_args()
     if args.command == "demo":
         make_demo_map(args.count, args.seed).save_npz(args.output)
@@ -68,6 +78,20 @@ def main() -> None:
         args.output.parent.mkdir(parents=True, exist_ok=True)
         plt.imsave(args.output, image.detach().cpu().numpy())
         print(f"Rendered differentiable reference image on {device} to {args.output}")
+    elif args.command == "train-colmap":
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        model = load_sparse_model(args.sparse_model)
+        initial_map = initialise_from_sparse_model(model)
+        if len(initial_map) > args.max_gaussians:
+            selection = np.random.default_rng(7).choice(len(initial_map), args.max_gaussians, replace=False)
+            initial_map = GaussianMap(initial_map.means[selection], initial_map.log_scales[selection], initial_map.quaternions[selection], initial_map.opacity_logits[selection], initial_map.sh_coefficients[selection])
+        views = load_training_views(model, args.image_directory, device, args.max_resolution)
+        trainer = GaussianTrainer(initial_map, views, TrainingConfig(iterations=args.iterations), device)
+        trained_map = trainer.train()
+        trained_map.save_npz(args.output)
+        history_path = args.output.with_suffix(".history.json")
+        history_path.write_text(json.dumps(trainer.loss_history), encoding="utf-8")
+        print(f"Trained {len(trained_map)} Gaussians for {args.iterations} iterations on {device}; saved {args.output}")
     else:
         GaussianMap.load_npz(args.input).export_ply(args.output)
         print(f"Exported {args.output}")

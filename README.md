@@ -49,6 +49,14 @@ python -m gsplat_scratch view outputs/colmap_map.npz --output outputs/colmap_map
 python -m gsplat_scratch render-demo outputs/reference_render.png
 ```
 
+## 参考训练循环
+
+训练器使用 L1 + DSSIM、分组 Adam、二维投影梯度统计和 clone/split/prune 密度控制。它专为验证算法流程而设计；在 CUDA tile rasterizer 完成前，应把参考训练限制在较低分辨率和少量高斯。
+
+```powershell
+python -m gsplat_scratch train-colmap path/to/sparse/0 path/to/images outputs/trained_map.npz --iterations 500 --max-resolution 128 --max-gaussians 256
+```
+
 ## 路线图
 
 1. 高斯地图、序列化与可视编辑器。

@@ -112,7 +112,8 @@ def render_reference(
     sh_coefficients: torch.Tensor,
     camera: RenderCamera,
     background: torch.Tensor | None = None,
-) -> torch.Tensor:
+    return_projection: bool = False,
+) -> torch.Tensor | tuple[torch.Tensor, ProjectedGaussians]:
     """Renders a view with differentiable front-to-back alpha compositing."""
     projected = project_gaussians(means, log_scales, quaternions, camera)
     height, width = camera.height, camera.width
@@ -136,4 +137,5 @@ def render_reference(
         contribution = transmittance * gaussian_alpha
         image = image + contribution.unsqueeze(-1) * colour
         transmittance = transmittance * (1 - gaussian_alpha)
-    return image + transmittance.unsqueeze(-1) * background
+    image = image + transmittance.unsqueeze(-1) * background
+    return (image, projected) if return_projection else image
