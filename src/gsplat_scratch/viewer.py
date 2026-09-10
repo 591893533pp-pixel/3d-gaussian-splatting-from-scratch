@@ -98,10 +98,12 @@ class GaussianMapEditor:
 
     def _draw(self) -> None:
         self.axes.clear()
-        visible = min(len(self.map), self.max_visible)
-        centers = self.map.means[:visible]
-        self.axes.scatter(centers[:, 0], centers[:, 1], centers[:, 2], s=5, c=self.map.base_colors[:visible], alpha=0.45)
-        for index in range(visible):
+        visible_indices = list(range(min(len(self.map), self.max_visible)))
+        if self.selected not in visible_indices:
+            visible_indices.append(self.selected)
+        centers = self.map.means[visible_indices]
+        self.axes.scatter(centers[:, 0], centers[:, 1], centers[:, 2], s=5, c=self.map.base_colors[visible_indices], alpha=0.45)
+        for index in visible_indices:
             self._draw_ellipsoid(index)
         center = np.mean(centers, axis=0)
         radius = max(float(np.max(np.ptp(centers, axis=0))) * 0.6, 0.7)
