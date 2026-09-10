@@ -41,6 +41,14 @@ python -m gsplat_scratch import-colmap path/to/sparse/0 outputs/colmap_map.npz
 python -m gsplat_scratch view outputs/colmap_map.npz --output outputs/colmap_map_edited.npz
 ```
 
+## 可微投影与参考渲染
+
+`renderer.py` 是为验证公式而写的 PyTorch 参考 rasterizer：它将旋转的 3D 协方差用透视 Jacobian 投影为 2D 椭圆，并按深度前到后 alpha 合成。它的复杂度为 `O(NHW)`，只用于小分辨率正确性验证；后续 CUDA tile rasterizer 将替换这一性能瓶颈。
+
+```powershell
+python -m gsplat_scratch render-demo outputs/reference_render.png
+```
+
 ## 路线图
 
 1. 高斯地图、序列化与可视编辑器。

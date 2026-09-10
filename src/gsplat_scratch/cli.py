@@ -6,10 +6,14 @@ import argparse
 from pathlib import Path
 
 import numpy as np
+import torch
+from matplotlib import pyplot as plt
 
 from .model import GaussianMap
 from .colmap import load_sparse_model
 from .initialization import initialise_from_sparse_model
+from .renderer import RenderCamera, render_reference
+from .torch_model import TorchGaussianParameters
 from .viewer import GaussianMapEditor
 
 
@@ -41,6 +45,9 @@ def main() -> None:
     import_colmap = subcommands.add_parser("import-colmap", help="Initialise a Gaussian map from COLMAP sparse reconstruction")
     import_colmap.add_argument("sparse_model", type=Path, help="Directory containing COLMAP cameras/images/points3D files")
     import_colmap.add_argument("output", type=Path)
+    render_demo = subcommands.add_parser("render-demo", help="Render a small differentiable Gaussian scene to a PNG")
+    render_demo.add_argument("output", type=Path)
+    render_demo.add_argument("--size", type=int, default=128)
     args = parser.parse_args()
     if args.command == "demo":
         make_demo_map(args.count, args.seed).save_npz(args.output)
@@ -51,6 +58,16 @@ def main() -> None:
         model = load_sparse_model(args.sparse_model)
         initialise_from_sparse_model(model).save_npz(args.output)
         print(f"Imported {len(model.cameras)} cameras, {len(model.images)} images, and {len(model.points)} points to {args.output}")
+    elif args.command == "render-demo":
+        gaussian_map = make_demo_map(24, 7)
+        gaussian_map.means[:, 2] += 3.0
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        parameters = TorchGaussianParameters(gaussian_map, device=device)
+        camera = RenderCamera.identity(args.size, args.size, focal_length=args.size, device=device)
+        image = render_reference(parameters.means, parameters.log_scales, parameters.quaternions, parameters.opacity_logits, parameters.sh_coefficients, camera)
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        plt.imsave(args.output, image.detach().cpu().numpy())
+        print(f"Rendered differentiable reference image on {device} to {args.output}")
     else:
         GaussianMap.load_npz(args.input).export_ply(args.output)
         print(f"Exported {args.output}")
