@@ -6,6 +6,7 @@ import torch
 from gsplat_scratch.dataset import TrainingView
 from gsplat_scratch.density import DensityController
 from gsplat_scratch.model import GaussianMap
+from gsplat_scratch.metrics import psnr
 from gsplat_scratch.renderer import RenderCamera, render_reference
 from gsplat_scratch.trainer import GaussianTrainer, TrainingConfig, dssim
 from gsplat_scratch.torch_model import TorchGaussianParameters
@@ -15,6 +16,10 @@ class TrainerTests(unittest.TestCase):
     def test_dssim_is_zero_for_identical_images(self) -> None:
         image = torch.rand(8, 8, 3)
         self.assertLess(float(dssim(image, image)), 1e-6)
+
+    def test_psnr_is_high_for_identical_images(self) -> None:
+        image = torch.rand(8, 8, 3)
+        self.assertGreater(float(psnr(image, image)), 90)
 
     def test_density_controller_clones_and_prunes(self) -> None:
         gaussian_map = GaussianMap.from_points(np.array([[0, 0, 1], [1, 0, 1]], dtype=np.float32), np.array([[1, 0, 0], [0, 1, 0]], dtype=np.float32), scale=0.01)

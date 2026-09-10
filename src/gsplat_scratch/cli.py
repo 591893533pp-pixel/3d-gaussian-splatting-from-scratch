@@ -17,6 +17,7 @@ from .renderer import RenderCamera, render_reference
 from .torch_model import TorchGaussianParameters
 from .dataset import load_training_views
 from .trainer import GaussianTrainer, TrainingConfig
+from .metrics import evaluate_views
 from .viewer import GaussianMapEditor
 
 
@@ -58,6 +59,15 @@ def main() -> None:
     train.add_argument("--iterations", type=int, default=500)
     train.add_argument("--max-resolution", type=int, default=128)
     train.add_argument("--max-gaussians", type=int, default=256)
+    train.add_argument("--sh-degree", type=int, choices=range(4), default=3)
+    train.add_argument("--renderer", choices=("reference", "tiled"), default="tiled")
+    evaluate = subcommands.add_parser("evaluate-colmap", help="Evaluate a saved Gaussian map against COLMAP images")
+    evaluate.add_argument("gaussian_map", type=Path)
+    evaluate.add_argument("sparse_model", type=Path)
+    evaluate.add_argument("image_directory", type=Path)
+    evaluate.add_argument("output", type=Path)
+    evaluate.add_argument("--max-resolution", type=int, default=128)
+    evaluate.add_argument("--renderer", choices=("reference", "tiled"), default="tiled")
     args = parser.parse_args()
     if args.command == "demo":
         make_demo_map(args.count, args.seed).save_npz(args.output)
@@ -85,13 +95,23 @@ def main() -> None:
         if len(initial_map) > args.max_gaussians:
             selection = np.random.default_rng(7).choice(len(initial_map), args.max_gaussians, replace=False)
             initial_map = GaussianMap(initial_map.means[selection], initial_map.log_scales[selection], initial_map.quaternions[selection], initial_map.opacity_logits[selection], initial_map.sh_coefficients[selection])
+        initial_map = initial_map.with_sh_degree(args.sh_degree)
         views = load_training_views(model, args.image_directory, device, args.max_resolution)
-        trainer = GaussianTrainer(initial_map, views, TrainingConfig(iterations=args.iterations), device)
+        trainer = GaussianTrainer(initial_map, views, TrainingConfig(iterations=args.iterations, renderer=args.renderer), device)
         trained_map = trainer.train()
         trained_map.save_npz(args.output)
         history_path = args.output.with_suffix(".history.json")
         history_path.write_text(json.dumps(trainer.loss_history), encoding="utf-8")
         print(f"Trained {len(trained_map)} Gaussians for {args.iterations} iterations on {device}; saved {args.output}")
+    elif args.command == "evaluate-colmap":
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        model = load_sparse_model(args.sparse_model)
+        views = load_training_views(model, args.image_directory, device, args.max_resolution)
+        parameters = TorchGaussianParameters(GaussianMap.load_npz(args.gaussian_map), device)
+        scores = evaluate_views(parameters, views, args.renderer)
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        args.output.write_text(json.dumps(scores, indent=2), encoding="utf-8")
+        print(f"PSNR {scores['psnr']:.2f}, SSIM {scores['ssim']:.4f}; saved {args.output}")
     else:
         GaussianMap.load_npz(args.input).export_ply(args.output)
         print(f"Exported {args.output}")

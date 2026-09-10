@@ -51,10 +51,11 @@ python -m gsplat_scratch render-demo outputs/reference_render.png
 
 ## 参考训练循环
 
-训练器使用 L1 + DSSIM、分组 Adam、二维投影梯度统计和 clone/split/prune 密度控制。它专为验证算法流程而设计；在 CUDA tile rasterizer 完成前，应把参考训练限制在较低分辨率和少量高斯。
+训练器使用 L1 + DSSIM、分组 Adam、二维投影梯度统计和 clone/split/prune 密度控制。默认 `tiled` 后端会在 CUDA 上按屏幕 tile 筛选高斯，避开参考后端的全局 `O(NHW)` 张量；它是便于审查的 PyTorch GPU 实现，尚不是论文级的自定义 CUDA kernel。
 
 ```powershell
-python -m gsplat_scratch train-colmap path/to/sparse/0 path/to/images outputs/trained_map.npz --iterations 500 --max-resolution 128 --max-gaussians 256
+python -m gsplat_scratch train-colmap path/to/sparse/0 path/to/images outputs/trained_map.npz --iterations 500 --max-resolution 128 --max-gaussians 256 --sh-degree 3
+python -m gsplat_scratch evaluate-colmap outputs/trained_map.npz path/to/sparse/0 path/to/images outputs/metrics.json
 ```
 
 ## 路线图
@@ -69,4 +70,10 @@ python -m gsplat_scratch train-colmap path/to/sparse/0 path/to/images outputs/tr
 
 - [论文](https://arxiv.org/abs/2308.04079)
 - [作者项目页](https://repo-sam.inria.fr/fungraph/3d-gaussian-splatting/)
+
+## 学习资料
+
+- [论文拆解](docs/paper_walkthrough_zh.md)
+- [代码拆解](docs/code_walkthrough_zh.md)
+- [从零使用与数据集建议](docs/usage_and_datasets_zh.md)
 

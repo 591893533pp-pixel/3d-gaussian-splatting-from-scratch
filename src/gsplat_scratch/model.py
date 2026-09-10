@@ -108,6 +108,15 @@ class GaussianMap:
         if opacity_logit is not None:
             self.opacity_logits[index, 0] = float(opacity_logit)
 
+    def with_sh_degree(self, degree: int) -> "GaussianMap":
+        """Returns a copy with enough coefficients for a real SH degree."""
+        if degree < 0 or degree > 3:
+            raise ValueError("This reference implementation supports SH degrees 0 through 3.")
+        coefficient_count = (degree + 1) ** 2
+        coefficients = np.zeros((len(self), 3, coefficient_count), dtype=np.float32)
+        coefficients[:, :, :min(coefficient_count, self.sh_coefficients.shape[2])] = self.sh_coefficients[:, :, :coefficient_count]
+        return GaussianMap(self.means.copy(), self.log_scales.copy(), self.quaternions.copy(), self.opacity_logits.copy(), coefficients)
+
     def save_npz(self, path: str | Path) -> None:
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)

@@ -4,7 +4,7 @@ import numpy as np
 import torch
 
 from gsplat_scratch.model import GaussianMap, SH_C0
-from gsplat_scratch.renderer import RenderCamera, project_gaussians, render_reference
+from gsplat_scratch.renderer import RenderCamera, project_gaussians, render_reference, render_tiled, sh_colours
 from gsplat_scratch.torch_model import TorchGaussianParameters
 
 
@@ -43,6 +43,24 @@ class ReferenceRendererTests(unittest.TestCase):
         self.assertTrue(torch.isfinite(parameters.means.grad).all())
         self.assertGreater(float(parameters.means.grad.abs().sum()), 0.0)
         self.assertGreater(float(parameters.opacity_logits.grad.abs().sum()), 0.0)
+
+    def test_tiled_renderer_matches_reference(self) -> None:
+        arguments = dict(
+            means=torch.tensor([[0.0, 0.0, 2.0], [0.2, 0.1, 3.0]]),
+            log_scales=torch.full((2, 3), -1.2),
+            quaternions=torch.tensor([[1.0, 0, 0, 0], [1.0, 0, 0, 0]]),
+            opacity_logits=torch.tensor([[2.0], [1.0]]),
+            sh_coefficients=torch.cat((_sh_colour(1, 0, 0), _sh_colour(0, 1, 0))),
+            camera=self.camera,
+        )
+        torch.testing.assert_close(render_tiled(**arguments, tile_size=8), render_reference(**arguments), atol=1e-5, rtol=1e-5)
+
+    def test_higher_order_sh_has_view_dependent_colour(self) -> None:
+        coefficients = torch.zeros((1, 3, 4))
+        coefficients[0, 0, 3] = 1.0
+        right = sh_colours(coefficients, torch.tensor([[1.0, 0.0, 0.0]]))
+        left = sh_colours(coefficients, torch.tensor([[-1.0, 0.0, 0.0]]))
+        self.assertNotEqual(float(right[0, 0]), float(left[0, 0]))
 
 
 if __name__ == "__main__":

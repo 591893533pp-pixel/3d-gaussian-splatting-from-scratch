@@ -11,7 +11,7 @@ from torch.nn import functional as functional
 from .dataset import TrainingView
 from .density import DensityController
 from .model import GaussianMap
-from .renderer import render_reference
+from .renderer import render_reference, render_tiled
 from .torch_model import TorchGaussianParameters
 
 
@@ -42,6 +42,7 @@ class TrainingConfig:
     densify_from: int = 300
     densify_until: int = 3_000
     densify_interval: int = 100
+    renderer: str = "tiled"
 
 
 class GaussianTrainer:
@@ -66,12 +67,14 @@ class GaussianTrainer:
     def step(self, iteration: int) -> float:
         view = random.choice(self.views)
         self.optimizer.zero_grad(set_to_none=True)
-        rendered, projected = render_reference(self.parameters.means, self.parameters.log_scales, self.parameters.quaternions, self.parameters.opacity_logits, self.parameters.sh_coefficients, view.camera, return_projection=True)
+        renderer = render_tiled if self.config.renderer == "tiled" else render_reference
+        rendered, projected = renderer(self.parameters.means, self.parameters.log_scales, self.parameters.quaternions, self.parameters.opacity_logits, self.parameters.sh_coefficients, view.camera, return_projection=True)
         projected.means_2d.retain_grad()
         l1 = (rendered - view.target).abs().mean()
         loss = (1 - self.config.dssim_weight) * l1 + self.config.dssim_weight * dssim(rendered, view.target)
         loss.backward()
-        self.density.accumulate(projected.means_2d.grad.detach().cpu().numpy(), projected.visible.detach().cpu().numpy())
+        if projected.means_2d.grad is not None:
+            self.density.accumulate(projected.means_2d.grad.detach().cpu().numpy(), projected.visible.detach().cpu().numpy())
         self.optimizer.step()
         if self.config.densify_from <= iteration <= self.config.densify_until and iteration % self.config.densify_interval == 0:
             refined = self.density.refine(self.parameters.to_gaussian_map())
