@@ -1,0 +1,47 @@
+# 3D Gaussian Splatting From Scratch
+
+从零复现 Kerbl et al. 的 *3D Gaussian Splatting for Real-Time Radiance Field Rendering*。
+
+本项目不会调用官方实现中的训练代码或 CUDA rasterizer。允许使用 PyTorch 自动求导、COLMAP 相机标定结果与 CUDA/Triton；3DGS 的参数表示、投影、alpha 合成、密度控制和渲染器均自行实现。
+
+## 当前阶段
+
+第一阶段已建立可编辑高斯地图基础：
+
+- `GaussianMap` 保存高斯中心、对数尺度、旋转四元数、opacity logits 与零阶球谐系数。
+- 使用 `.npz` 进行无损工作文件保存，使用 ASCII `.ply` 进行交换导出。
+- `matplotlib` 编辑器以椭球显示各向异性协方差；可选中单个高斯并实时调节位置、尺度与不透明度。
+
+## 环境
+
+现有 Conda 环境为 `3dgs`，已验证 PyTorch 能识别 CUDA 12.8 和 RTX 5080。
+
+```powershell
+conda activate 3dgs
+pip install -e .
+```
+
+## 运行地图编辑器
+
+先创建可编辑演示地图：
+
+```powershell
+python -m gsplat_scratch demo outputs/demo_map.npz --count 48
+python -m gsplat_scratch view outputs/demo_map.npz --output outputs/demo_map_edited.npz
+```
+
+编辑器窗口中可用鼠标旋转、缩放和移动视角。下方的滑块用于选择高斯并修改参数；`Save map` 会写入 `--output` 指定的文件。
+
+## 路线图
+
+1. 高斯地图、序列化与可视编辑器。
+2. COLMAP 读取、相机模型、稀疏点云初始化。
+3. PyTorch 可微投影与 alpha 合成正确性版本。
+4. 优化、SH 外观、增密、分裂、裁剪与评测。
+5. CUDA/Triton tile rasterizer 与实时渲染。
+
+## 参考
+
+- [论文](https://arxiv.org/abs/2308.04079)
+- [作者项目页](https://repo-sam.inria.fr/fungraph/3d-gaussian-splatting/)
+

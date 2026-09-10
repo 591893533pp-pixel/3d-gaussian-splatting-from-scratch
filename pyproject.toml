@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "3dgs-from-scratch"
+version = "0.1.0"
+description = "A from-scratch reproduction of 3D Gaussian Splatting"
+requires-python = ">=3.10"
+dependencies = [
+  "numpy>=1.26",
+  "matplotlib>=3.8",
+]
+
+[project.scripts]
+gsplat-scratch = "gsplat_scratch.cli:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
