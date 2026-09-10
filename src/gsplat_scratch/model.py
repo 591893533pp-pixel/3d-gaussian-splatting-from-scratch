@@ -74,15 +74,18 @@ class GaussianMap:
         return np.clip(0.5 + SH_C0 * self.sh_coefficients[:, :, 0], 0.0, 1.0)
 
     @classmethod
-    def from_points(cls, points: np.ndarray, colors: np.ndarray, scale: float = 0.03) -> "GaussianMap":
+    def from_points(cls, points: np.ndarray, colors: np.ndarray, scale: float | np.ndarray = 0.03) -> "GaussianMap":
         points = np.asarray(points, dtype=np.float32)
         colors = np.asarray(colors, dtype=np.float32)
         if points.ndim != 2 or points.shape[1] != 3 or colors.shape != points.shape:
             raise ValueError("points and colors must both have shape (N, 3).")
         count = len(points)
+        scales = np.broadcast_to(np.asarray(scale, dtype=np.float32), (count, 3))
+        if np.any(scales <= 0):
+            raise ValueError("scale must be strictly positive.")
         return cls(
             means=points,
-            log_scales=np.full((count, 3), np.log(scale), dtype=np.float32),
+            log_scales=np.log(scales).astype(np.float32),
             quaternions=np.tile(np.array([1.0, 0.0, 0.0, 0.0], dtype=np.float32), (count, 1)),
             opacity_logits=np.full((count, 1), 2.0, dtype=np.float32),
             sh_coefficients=((colors - 0.5) / SH_C0)[:, :, None],
@@ -142,4 +145,3 @@ class GaussianMap:
                     self.quaternions[index],
                 ))
                 file.write(" ".join(f"{value:.8g}" for value in values) + "\n")
-

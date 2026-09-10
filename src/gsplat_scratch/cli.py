@@ -8,6 +8,8 @@ from pathlib import Path
 import numpy as np
 
 from .model import GaussianMap
+from .colmap import load_sparse_model
+from .initialization import initialise_from_sparse_model
 from .viewer import GaussianMapEditor
 
 
@@ -36,13 +38,19 @@ def main() -> None:
     export = subcommands.add_parser("export-ply", help="Export a saved Gaussian map as ASCII PLY")
     export.add_argument("input", type=Path)
     export.add_argument("output", type=Path)
+    import_colmap = subcommands.add_parser("import-colmap", help="Initialise a Gaussian map from COLMAP sparse reconstruction")
+    import_colmap.add_argument("sparse_model", type=Path, help="Directory containing COLMAP cameras/images/points3D files")
+    import_colmap.add_argument("output", type=Path)
     args = parser.parse_args()
     if args.command == "demo":
         make_demo_map(args.count, args.seed).save_npz(args.output)
         print(f"Created {args.count} Gaussians at {args.output}")
     elif args.command == "view":
         GaussianMapEditor(GaussianMap.load_npz(args.input), str(args.output) if args.output else None, args.max_visible).show()
+    elif args.command == "import-colmap":
+        model = load_sparse_model(args.sparse_model)
+        initialise_from_sparse_model(model).save_npz(args.output)
+        print(f"Imported {len(model.cameras)} cameras, {len(model.images)} images, and {len(model.points)} points to {args.output}")
     else:
         GaussianMap.load_npz(args.input).export_ply(args.output)
         print(f"Exported {args.output}")
-

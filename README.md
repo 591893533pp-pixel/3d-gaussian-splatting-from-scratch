@@ -32,6 +32,15 @@ python -m gsplat_scratch view outputs/demo_map.npz --output outputs/demo_map_edi
 
 编辑器窗口中可用鼠标旋转、缩放和移动视角。下方的滑块用于选择高斯并修改参数；`Save map` 会写入 `--output` 指定的文件。
 
+## 导入 COLMAP 稀疏重建
+
+将 COLMAP 的 `sparse/0` 目录传入命令。支持 COLMAP 的 `cameras.bin`、`images.bin`、`points3D.bin`，也支持对应的文本格式。每个稀疏点会以其 RGB 颜色和最近邻距离初始化为一个各向异性高斯。
+
+```powershell
+python -m gsplat_scratch import-colmap path/to/sparse/0 outputs/colmap_map.npz
+python -m gsplat_scratch view outputs/colmap_map.npz --output outputs/colmap_map_edited.npz
+```
+
 ## 路线图
 
 1. 高斯地图、序列化与可视编辑器。
